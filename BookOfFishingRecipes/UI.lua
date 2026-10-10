@@ -1,0 +1,591 @@
+-- UI.lua
+
+local function CreateDivider(parent, yOffset)
+    local tex = parent:CreateTexture(nil, "ARTWORK")
+    tex:SetTexture("Interface\\FriendsFrame\\UI-FriendsFrame-OnlineDivider")
+    tex:SetSize(350, 8)
+    tex:SetPoint("TOP", 0, yOffset)
+    return tex
+end
+
+local function SetMapMarker(mapID, x, y, name)
+    if not mapID or not x or not y then
+        print("|cFFFF0000[BFR]|r Chybí data pro mapu u: " .. (name or "Unknown"))
+        return
+    end
+
+    -- 1. Pokud hráč má TomTom, je to nejspolehlivější řešení.
+    -- Zkusíme z názvu vendora vypreparovat jméno zóny (např. "Durotar" z "Zansoa (Durotar)")
+    local zoneName = string.match(name, "%((.+)%)")
+    if SlashCmdList["TOMTOM_WAY"] and zoneName then
+        -- Pošleme přímo jméno zóny do TomTomu, ten si MapID najde sám
+        SlashCmdList["TOMTOM_WAY"](string.format("%s %f %f %s", zoneName, x, y, name))
+        return
+    end
+
+    -- 2. Smart MapID Detekce pro C_Map
+    -- Zkusíme, zda klient bere Era MapID (např. 1411), jinak přepneme na Retail (1)
+    if C_Map and C_Map.CanSetUserWaypointOnMap then
+        if not C_Map.CanSetUserWaypointOnMap(mapID) then
+            local legacyMapIDs = {
+                [1429] = 37, [1411] = 1, [1412] = 15, [1454] = 85, [1458] = 68,
+                [1453] = 84, [1413] = 17, [1434] = 210, [1446] = 71, [1426] = 69,
+                [1443] = 66, [1424] = 25, [1432] = 22, [1455] = 87,
+            }
+            if legacyMapIDs[mapID] and C_Map.CanSetUserWaypointOnMap(legacyMapIDs[mapID]) then
+                mapID = legacyMapIDs[mapID]
+            end
+        end
+    end
+
+    -- 3. Nativní Dragonflight / Moderní Waypoint API
+    if C_Map and C_Map.SetUserWaypoint then
+        local mapPoint = UiMapPoint.CreateFromCoordinates(mapID, x/100, y/100)
+        C_Map.SetUserWaypoint(mapPoint)
+        C_SuperTrack.SetSuperTrackedUserWaypoint(true)
+        
+        print("|cFF00FFFF[BFR]|r Značka: " .. name .. " (Pokus o mapID: " .. mapID .. ")")
+        
+        -- Agresivní přepnutí okna mapy (s mírným zpožděním, pokud se mapa teprve otevírá)
+        if WorldMapFrame then
+            if not WorldMapFrame:IsShown() then ToggleWorldMap() end
+            
+            C_Timer.After(0.05, function()
+                if WorldMapFrame.SetMapID then 
+                    WorldMapFrame:SetMapID(mapID) 
+                elseif OpenWorldMap then
+                    OpenWorldMap(mapID)
+                end
+            end)
+        end
+    elseif SlashCmdList["TOMTOM_WAY"] then
+        SlashCmdList["TOMTOM_WAY"](string.format("%d %f %f %s", mapID, x, y, name))
+    end
+end
+
+BFR_SelectedFish = nil
+
+local function FormatMoney(copper)
+    if not copper or copper == 0 then return "" end
+    local g = math.floor(copper / 10000)
+    local s = math.floor((copper % 10000) / 100)
+    local c = copper % 100
+    local str = " - "
+    if g > 0 then str = str .. g .. " |TInterface\\MoneyFrame\\UI-GoldIcon:12:12:2:0|t " end
+    if s > 0 then str = str .. s .. " |TInterface\\MoneyFrame\\UI-SilverIcon:12:12:2:0|t " end
+    if c > 0 then str = str .. c .. " |TInterface\\MoneyFrame\\UI-CopperIcon:12:12:2:0|t" end
+    return str
+end
+
+local function SafeHasItem(itemID)
+    if not itemID then return false end
+    local ok, count = pcall(function()
+        if C_Item and C_Item.GetItemCount then
+            return C_Item.GetItemCount(itemID)
+        elseif GetItemCount then
+            return GetItemCount(itemID)
+        end
+        return 0
+    end)
+    return ok and (type(count) == "number" and count > 0)
+end
+
+local function GetPlayerSkills()
+    local fLvl, fMax, cLvl, cMax = 0, 0, 0, 0
+    if GetProfessions then
+        local prof1, prof2, arch, fish, cook = GetProfessions()
+        if fish then
+            local _, _, lvl, maxLvl = GetProfessionInfo(fish)
+            fLvl, fMax = lvl or 0, maxLvl or 0
+        end
+        if cook then
+            local _, _, lvl, maxLvl = GetProfessionInfo(cook)
+            cLvl, cMax = lvl or 0, maxLvl or 0
+        end
+    end
+    return fLvl, fMax, cLvl, cMax
+end
+
+BFR_UIFrame = CreateFrame("Frame", "BFR_BookFrame", UIParent, "BasicFrameTemplateWithInset")
+BFR_UIFrame:SetSize(780, 500)
+BFR_UIFrame:SetPoint("CENTER")
+BFR_UIFrame:Hide() 
+BFR_UIFrame:SetMovable(true)
+BFR_UIFrame:EnableMouse(true)
+BFR_UIFrame:RegisterForDrag("LeftButton")
+BFR_UIFrame:SetScript("OnDragStart", BFR_UIFrame.StartMoving)
+BFR_UIFrame:SetScript("OnDragStop", BFR_UIFrame.StopMovingOrSizing)
+
+BFR_UIFrame.title = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+BFR_UIFrame.title:SetPoint("TOP", 0, -5)
+BFR_UIFrame.title:SetText("Book of Fishing Recipes")
+
+BFR_UIFrame.SkillText = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
+BFR_UIFrame.SkillText:SetPoint("TOP", 0, -22)
+BFR_UIFrame.SkillText:SetText("Fishing: 0/0  |  Cooking: 0/0")
+
+BFR_UIFrame.Legend = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+BFR_UIFrame.Legend:SetPoint("BOTTOMLEFT", 15, 12)
+BFR_UIFrame.Legend:SetText("|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t = In Bag  |cFF00FF00(✓)|r = Caught  |TInterface\\Icons\\Trade_Fishing:14:14:0:-1|t = Can Catch  |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:-1|t = Can Cook")
+
+-- ================= LEVÝ PANEL =================
+local leftPanel = CreateFrame("Frame", nil, BFR_UIFrame)
+leftPanel:SetSize(300, 420)
+leftPanel:SetPoint("TOPLEFT", 10, -30)
+
+local scrollFrame = CreateFrame("ScrollFrame", "BFR_ScrollFrame", leftPanel, "UIPanelScrollFrameTemplate")
+scrollFrame:SetPoint("TOPLEFT", 5, -5)
+scrollFrame:SetPoint("BOTTOMRIGHT", -30, 5)
+
+local scrollChild = CreateFrame("Frame")
+scrollChild:SetSize(260, 420)
+scrollFrame:SetScrollChild(scrollChild)
+
+-- ================= PRAVÝ PANEL =================
+local rightPanel = CreateFrame("Frame", nil, BFR_UIFrame)
+rightPanel:SetSize(430, 430)
+rightPanel:SetPoint("TOPRIGHT", -15, -30)
+
+local rightBg = rightPanel:CreateTexture(nil, "BACKGROUND")
+rightBg:SetAllPoints()
+rightBg:SetTexture("Interface\\QuestFrame\\QuestBG")
+rightBg:SetTexCoord(0, 0.58, 0, 0.65)
+rightBg:SetAlpha(0.6)
+
+rightPanel.FishName = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
+rightPanel.FishName:SetPoint("TOP", 0, -15)
+rightPanel.FishName:SetText("Select a fish from the list")
+
+rightPanel.CaughtStatus = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.CaughtStatus:SetPoint("TOP", rightPanel.FishName, "BOTTOM", 0, -5)
+rightPanel.CaughtStatus:SetTextColor(0, 1, 0)
+
+CreateDivider(rightPanel, -65)
+
+rightPanel.SourceType = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.SourceType:SetPoint("TOPLEFT", 20, -85)
+rightPanel.SourceType:SetWidth(390)
+rightPanel.SourceType:SetJustifyH("LEFT")
+
+rightPanel.BasicInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.BasicInfo:SetPoint("TOPLEFT", rightPanel.SourceType, "BOTTOMLEFT", 0, -10)
+rightPanel.BasicInfo:SetWidth(390)
+rightPanel.BasicInfo:SetJustifyH("LEFT")
+
+CreateDivider(rightPanel, -160)
+
+rightPanel.RecipeButton = CreateFrame("Button", nil, rightPanel)
+rightPanel.RecipeButton:SetSize(390, 20)
+rightPanel.RecipeButton:SetPoint("TOPLEFT", 20, -180)
+local rbText = rightPanel.RecipeButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+rbText:SetPoint("LEFT", 0, 0)
+rightPanel.RecipeButton:SetFontString(rbText)
+
+rightPanel.RecipeButton:SetScript("OnEnter", function(self)
+    rbText:SetTextColor(1, 1, 1)
+    if self.itemLink then
+        GameTooltip:SetOwner(self, "ANCHOR_RIGHT")
+        GameTooltip:SetHyperlink(self.itemLink)
+        GameTooltip:Show()
+    end
+end)
+rightPanel.RecipeButton:SetScript("OnLeave", function() 
+    rbText:SetTextColor(1, 0.82, 0)
+    GameTooltip:Hide() 
+end)
+rightPanel.RecipeButton:SetScript("OnClick", function(self)
+    if self.itemLink and IsModifiedClick() then
+        HandleModifiedItemClick(self.itemLink)
+    end
+end)
+
+rightPanel.CookInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.CookInfo:SetPoint("TOPLEFT", rightPanel.RecipeButton, "BOTTOMLEFT", 0, -5)
+rightPanel.CookInfo:SetWidth(390)
+rightPanel.CookInfo:SetJustifyH("LEFT")
+rightPanel.CookInfo:SetJustifyV("TOP")
+
+CreateDivider(rightPanel, -235)
+
+rightPanel.VendorsTitle = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.VendorsTitle:SetPoint("TOPLEFT", 20, -255)
+rightPanel.VendorsTitle:SetJustifyH("LEFT")
+
+rightPanel.vendorBtns = {}
+
+rightPanel.CatchBox = CreateFrame("Frame", nil, rightPanel, "BackdropTemplate")
+rightPanel.CatchBox:SetSize(185, 24)
+rightPanel.CatchBox:SetPoint("BOTTOMLEFT", 15, 25)
+rightPanel.CatchBox.bg = rightPanel.CatchBox:CreateTexture(nil, "BACKGROUND")
+rightPanel.CatchBox.bg:SetAllPoints()
+rightPanel.CatchBox.Text = rightPanel.CatchBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+rightPanel.CatchBox.Text:SetPoint("CENTER")
+rightPanel.CatchBox:Hide()
+
+rightPanel.CookBox = CreateFrame("Frame", nil, rightPanel, "BackdropTemplate")
+rightPanel.CookBox:SetSize(185, 24)
+rightPanel.CookBox:SetPoint("BOTTOMRIGHT", -15, 25)
+rightPanel.CookBox.bg = rightPanel.CookBox:CreateTexture(nil, "BACKGROUND")
+rightPanel.CookBox.bg:SetAllPoints()
+rightPanel.CookBox.Text = rightPanel.CookBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
+rightPanel.CookBox.Text:SetPoint("CENTER")
+rightPanel.CookBox:Hide()
+
+local function ShowFishDetails(itemID)
+    local data = BFR_Database.Fish[itemID]
+    if not data then return end
+    
+    rightPanel.FishName:SetText(data.name)
+    
+    if BFR_CaughtFish and BFR_CaughtFish[itemID] then
+        rightPanel.CaughtStatus:SetText("(✓) You already catched this")
+    else
+        rightPanel.CaughtStatus:SetText("")
+    end
+    
+    local cat = data.category or "Cookable"
+    
+    local sourceText = ""
+    if cat == "Cookable" and data.recipes and data.recipes[1] then
+        sourceText = "   |cFFFFFF00Source:|r " .. (data.recipes[1].sourceType or "Unknown")
+    end
+    
+    rightPanel.SourceType:SetText("|cFFFFFF00Category:|r " .. cat .. sourceText)
+    
+    local basicText = "|cFFFFFF00Requires Fishing Lvl:|r " .. (data.fishingMin or "1") .. "\n"
+    basicText = basicText .. "|cFFFFFF00Catch Locations:|r " .. (data.catchLocations or "Unknown")
+    rightPanel.BasicInfo:SetText(basicText)
+    
+    for _, vBtn in ipairs(rightPanel.vendorBtns) do vBtn:Hide() end
+    rightPanel.RecipeButton:SetText("")
+    rightPanel.RecipeButton.itemLink = nil
+    rightPanel.CookInfo:SetText("")
+    rightPanel.VendorsTitle:SetText("")
+    
+    local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
+    
+    rightPanel.CatchBox:Show()
+    if fLvl >= (data.fishingMin or 1) then
+        rightPanel.CatchBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+        rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t You can catch this")
+    else
+        rightPanel.CatchBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+        rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t You cannot catch this")
+    end
+    
+    if cat == "Cookable" and data.recipes and data.recipes[1] then
+        rightPanel.CookBox:Show()
+        if cLvl >= (data.recipes[1].minCook or 1) then
+            rightPanel.CookBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+            rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t You can cook this")
+        else
+            rightPanel.CookBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+            rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t You cannot cook this")
+        end
+    else
+        rightPanel.CookBox:Hide()
+    end
+    
+    if cat == "Cookable" then
+        local recipe = data.recipes and data.recipes[1]
+        if recipe then
+            local itemName = recipe.name or "Recipe"
+            local itemLink = "|cff1eff00|Hitem:" .. recipe.itemID .. ":0:0:0:0:0:0:0|h[" .. itemName .. "]|h|r"
+            local priceStr = FormatMoney(recipe.price)
+            
+            rightPanel.RecipeButton.itemLink = itemLink
+            rightPanel.RecipeButton:SetText("Recipe: " .. itemLink .. priceStr)
+            rbText:SetTextColor(1, 0.82, 0)
+            
+            rightPanel.CookInfo:SetText("|cFF00FF00Best for Cooking Lvl:|r " .. recipe.cookLvl)
+            
+            local yPos = -275
+            local listData = recipe.sourceType == "Drop" and recipe.drops or recipe.vendors
+            
+            if listData then
+                local playerFaction = UnitFactionGroup("player")
+                local filteredList = {}
+                for _, info in ipairs(listData) do
+                    if not info.faction or info.faction == "Neutral" or info.faction == playerFaction then
+                        table.insert(filteredList, info)
+                    end
+                end
+                
+                if #filteredList > 0 then
+                    rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|cFFFFFF00Recipe drops from:|r" or "|cFFFFFF00Vendors:|r")
+                    for i, info in ipairs(filteredList) do
+                        if not rightPanel.vendorBtns[i] then
+                            local vBtn = CreateFrame("Button", nil, rightPanel)
+                            vBtn:SetSize(350, 15)
+                            local vText = vBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+                            vText:SetPoint("LEFT", 0, 0)
+                            vBtn:SetFontString(vText)
+                            vBtn.textObject = vText 
+                            
+                            vBtn:SetScript("OnEnter", function(self) self.textObject:SetTextColor(1, 0.82, 0) end)
+                            vBtn:SetScript("OnLeave", function(self) self.textObject:SetTextColor(1, 1, 1) end)
+                            
+                            rightPanel.vendorBtns[i] = vBtn
+                        end
+                        
+                        local vBtn = rightPanel.vendorBtns[i]
+                        vBtn:SetPoint("TOPLEFT", 25, yPos)
+                        vBtn.textObject:SetTextColor(1, 1, 1) 
+                        vBtn:SetText("• " .. info.name)
+                        vBtn:Show()
+                        
+                        vBtn:SetScript("OnClick", function()
+                            if IsShiftKeyDown() then
+                                -- Získat čisté jméno bez zóny v závorce (např. "Zansoa")
+                                local npcName = string.match(info.name, "^(.-)%s*%(") or info.name
+                                npcName = string.match(npcName, "^%s*(.-)%s*$") or npcName
+                                
+                                -- Vloží makro do editboxu pouze pokud je chat otevřený
+                                local editBox = ChatEdit_GetActiveWindow()
+                                if editBox then
+                                    editBox:Insert("/tar " .. npcName)
+                                end
+                            else
+                                SetMapMarker(info.mapID, info.x, info.y, info.name)
+                            end
+                        end)
+                        
+                        yPos = yPos - 18
+                    end
+                else
+                    rightPanel.VendorsTitle:SetText("|cFF999999(No vendors available for your faction)|r")
+                end
+            end
+        end
+    elseif cat == "Crafting" then
+        local craft = data.crafts and data.crafts[1]
+        if craft then
+            local itemLink = "|cff1eff00|Hitem:" .. craft.itemID .. ":0:0:0:0:0:0:0|h[" .. craft.name .. "]|h|r"
+            rightPanel.RecipeButton.itemLink = itemLink
+            rightPanel.RecipeButton:SetText("Used in: " .. itemLink)
+            rbText:SetTextColor(1, 0.82, 0)
+            
+            rightPanel.CookInfo:SetText("|cFF00FF00Profession:|r " .. craft.profession .. " (" .. craft.profLvl .. ")")
+        end
+    elseif cat == "Consumable" then
+        rightPanel.CookInfo:SetText("|cFFFFFF00Notes:|r\n" .. (data.notes or ""))
+    end
+end
+
+if not BFR_CollapsedCats then BFR_CollapsedCats = {} end
+
+function BFR_RefreshUI()
+    if scrollChild.buttons then
+        for _, btn in ipairs(scrollChild.buttons) do btn:Hide() end
+    end
+    scrollChild.buttons = {}
+    
+    local categoryData = { Cookable = {}, Crafting = {}, Consumable = {} }
+    for itemID, data in pairs(BFR_Database.Fish) do
+        local cat = data.category or "Cookable"
+        if not categoryData[cat] then categoryData[cat] = {} end
+        table.insert(categoryData[cat], {id = itemID, data = data})
+    end
+    
+    local catColors = {
+        Cookable = {1, 0.82, 0}, 
+        Crafting = {0.4, 0.8, 1}, 
+        Consumable = {0.7, 0.7, 0.7}
+    }
+    local categories = { "Cookable", "Crafting", "Consumable" }
+    
+    for _, cat in ipairs(categories) do
+        table.sort(categoryData[cat], function(a, b)
+            local fa = a.data.recipes and a.data.recipes[1] and a.data.recipes[1].minCook or (a.data.crafts and a.data.crafts[1] and a.data.crafts[1].minCook) or 9999
+            local fb = b.data.recipes and b.data.recipes[1] and b.data.recipes[1].minCook or (b.data.crafts and b.data.crafts[1] and b.data.crafts[1].minCook) or 9999
+            if fa == fb then return a.data.name < b.data.name end
+            return fa < fb
+        end)
+    end
+    
+    local yOffset = -5
+    
+    for _, cat in ipairs(categories) do
+        local list = categoryData[cat]
+        if list and #list > 0 then
+            -- Tlačítko pro nadpis (skládání sekce)
+            local headerBtn = CreateFrame("Button", nil, scrollChild)
+            headerBtn:SetSize(250, 18)
+            headerBtn:SetPoint("TOPLEFT", 5, yOffset)
+            
+            -- Pozadí pro nadpis, aby to vypadalo jako sekce
+            local tex = headerBtn:CreateTexture(nil, "BACKGROUND")
+            tex:SetAllPoints()
+            tex:SetColorTexture(0.15, 0.15, 0.15, 0.7)
+            
+            local ht = headerBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+            ht:SetPoint("LEFT", 5, 0)
+            
+            local c = catColors[cat]
+            ht:SetTextColor(c[1], c[2], c[3])
+            
+            local isCollapsed = BFR_CollapsedCats[cat]
+            ht:SetText((isCollapsed and "[+] " or "[-] ") .. string.upper(cat))
+            headerBtn:SetFontString(ht)
+            
+            headerBtn:SetScript("OnClick", function()
+                BFR_CollapsedCats[cat] = not BFR_CollapsedCats[cat]
+                BFR_RefreshUI()
+            end)
+            
+            table.insert(scrollChild.buttons, headerBtn)
+            yOffset = yOffset - 20
+            
+            -- Vykreslení ryb uvnitř sekce (pokud není sbalená)
+            if not isCollapsed then
+                for _, fish in ipairs(list) do
+                    local itemID = fish.id
+                    local data = fish.data
+                    
+                    local btn = CreateFrame("Button", nil, scrollChild)
+                    btn:SetSize(240, 16) 
+                    btn:SetPoint("TOPLEFT", 15, yOffset)
+                    
+                    local btnText = btn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+                    btnText:SetPoint("LEFT", 0, 0)
+                    btn:SetFontString(btnText)
+                    btn.textObject = btnText
+                    
+                    local highlightBg = btn:CreateTexture(nil, "ARTWORK")
+                    highlightBg:SetAllPoints()
+                    highlightBg:SetColorTexture(1, 1, 1, 0.25)
+                    
+                    btn.itemID = itemID
+                    btn.highlightBg = highlightBg
+                    btn.baseColor = c
+                    
+                    if BFR_SelectedFish == itemID then
+                        highlightBg:Show()
+                        btnText:SetTextColor(1, 1, 1)
+                    else
+                        highlightBg:Hide()
+                        btnText:SetTextColor(c[1], c[2], c[3])
+                    end
+                    
+                    btn:SetScript("OnEnter", function(self) 
+                        self.textObject:SetTextColor(1, 1, 1) 
+                        self.highlightBg:Show()
+                    end)
+                    btn:SetScript("OnLeave", function(self) 
+                        if BFR_SelectedFish ~= self.itemID then
+                            self.textObject:SetTextColor(self.baseColor[1], self.baseColor[2], self.baseColor[3])
+                            self.highlightBg:Hide()
+                        end
+                    end)
+                    
+                    local prefix = ""
+                    if SafeHasItem(itemID) then
+                        prefix = prefix .. "|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t "
+                    end
+                    if BFR_CaughtFish and BFR_CaughtFish[itemID] then
+                        prefix = prefix .. "|cFF00FF00(✓)|r " 
+                    end
+                    
+                    btn:SetText(prefix .. data.name)
+                    btn:SetScript("OnClick", function(self) 
+                        BFR_SelectedFish = self.itemID
+                        ShowFishDetails(self.itemID) 
+                        
+                        -- Zvýraznění aktivní ryby bez smazání tlačítek
+                        if scrollChild.buttons then
+                            for _, b in ipairs(scrollChild.buttons) do
+                                if b.itemID then
+                                    if b.itemID == BFR_SelectedFish then
+                                        b.highlightBg:Show()
+                                        b.textObject:SetTextColor(1, 1, 1)
+                                    else
+                                        b.highlightBg:Hide()
+                                        b.textObject:SetTextColor(b.baseColor[1], b.baseColor[2], b.baseColor[3])
+                                    end
+                                end
+                            end
+                        end
+                    end)
+                    
+                    table.insert(scrollChild.buttons, btn)
+                    yOffset = yOffset - 18 
+                end
+            end
+            yOffset = yOffset - 5 
+        end
+    end
+    
+    -- Dynamické přepočítání výšky seznamu, aby scrollbar fungoval správně
+    scrollChild:SetHeight(math.abs(yOffset))
+end
+
+local function UpdateListVisuals()
+    local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
+    if BFR_UIFrame.SkillText then
+        BFR_UIFrame.SkillText:SetText(string.format("Fishing: %d/%d  |  Cooking: %d/%d", fLvl, fMax, cLvl, cMax))
+    end
+    
+    if not scrollChild.buttons then return end
+    for _, btn in ipairs(scrollChild.buttons) do
+        if btn.itemID then
+            local data = BFR_Database.Fish[btn.itemID]
+            if data then
+                local prefix = ""
+                if SafeHasItem(btn.itemID) then
+                    prefix = prefix .. "|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t "
+                end
+                if BFR_CaughtFish and BFR_CaughtFish[btn.itemID] then
+                    prefix = prefix .. "|cFF00FF00(✓)|r " 
+                end
+                
+                local suffix = ""
+                if fLvl >= (data.fishingMin or 1) then
+                    suffix = suffix .. " |TInterface\\Icons\\Trade_Fishing:14:14:0:-1|t"
+                end
+                if data.category == "Cookable" and data.recipes and data.recipes[1] then
+                    if cLvl >= (data.recipes[1].minCook or 1) then
+                        suffix = suffix .. " |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:-1|t"
+                    end
+                end
+                
+                btn:SetText(prefix .. data.name .. suffix)
+            end
+        end
+    end
+    
+    if BFR_SelectedFish then
+        local data = BFR_Database.Fish[BFR_SelectedFish]
+        if data then
+            if fLvl >= (data.fishingMin or 1) then
+                rightPanel.CatchBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+                rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t You can catch this")
+            else
+                rightPanel.CatchBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+                rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t You cannot catch this")
+            end
+            
+            if data.category == "Cookable" and data.recipes and data.recipes[1] then
+                if cLvl >= (data.recipes[1].minCook or 1) then
+                    rightPanel.CookBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+                    rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t You can cook this")
+                else
+                    rightPanel.CookBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+                    rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t You cannot cook this")
+                end
+            end
+        end
+    end
+end
+
+BFR_UIFrame:RegisterEvent("BAG_UPDATE")
+BFR_UIFrame:RegisterEvent("SKILL_LINES_CHANGED")
+BFR_UIFrame:SetScript("OnEvent", function(self, event, ...)
+    if self:IsShown() then
+        UpdateListVisuals()
+    end
+end)
+
+BFR_UIFrame:SetScript("OnShow", function()
+    BFR_RefreshUI()
+    UpdateListVisuals()
+end)

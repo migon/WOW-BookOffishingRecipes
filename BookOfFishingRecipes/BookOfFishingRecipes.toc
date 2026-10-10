@@ -1,0 +1,12 @@
+## Interface: 16001
+## Title: Book of Fishing Recipes
+## Notes: Zobrazuje recepty na vaření z ulovených ryb a přidává speciální okno.
+## Author: Antigravity & User
+## Version: 1.0
+## SavedVariables: BFR_CaughtFish
+
+Database.lua
+Core.lua
+Tooltip.lua
+UI.lua
+Minimap.lua
