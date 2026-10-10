@@ -107,7 +107,7 @@ local function GetPlayerSkills()
 end
 
 BFR_UIFrame = CreateFrame("Frame", "BFR_BookFrame", UIParent, "BasicFrameTemplateWithInset")
-BFR_UIFrame:SetSize(780, 500)
+BFR_UIFrame:SetSize(780, 540)
 BFR_UIFrame:SetPoint("CENTER")
 BFR_UIFrame:Hide() 
 BFR_UIFrame:SetMovable(true)
@@ -120,9 +120,29 @@ BFR_UIFrame.title = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontHighli
 BFR_UIFrame.title:SetPoint("TOP", 0, -5)
 BFR_UIFrame.title:SetText("Book of Fishing Recipes")
 
-BFR_UIFrame.SkillText = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontNormalSmall")
-BFR_UIFrame.SkillText:SetPoint("TOP", 0, -22)
-BFR_UIFrame.SkillText:SetText("Fishing: 0/0  |  Cooking: 0/0")
+-- === SKILL HEADER ===
+BFR_UIFrame.SkillHeader = CreateFrame("Frame", nil, BFR_UIFrame, "BackdropTemplate")
+BFR_UIFrame.SkillHeader:SetSize(760, 30)
+BFR_UIFrame.SkillHeader:SetPoint("TOP", 0, -25)
+
+BFR_UIFrame.SkillHeader.bg = BFR_UIFrame.SkillHeader:CreateTexture(nil, "BACKGROUND")
+BFR_UIFrame.SkillHeader.bg:SetAllPoints()
+BFR_UIFrame.SkillHeader.bg:SetColorTexture(0, 0, 0, 0.4)
+
+BFR_UIFrame.SkillHeader.topBorder = BFR_UIFrame.SkillHeader:CreateTexture(nil, "BORDER")
+BFR_UIFrame.SkillHeader.topBorder:SetSize(760, 1)
+BFR_UIFrame.SkillHeader.topBorder:SetPoint("TOP", 0, 0)
+BFR_UIFrame.SkillHeader.topBorder:SetColorTexture(1, 0.82, 0, 0.3)
+
+BFR_UIFrame.SkillHeader.botBorder = BFR_UIFrame.SkillHeader:CreateTexture(nil, "BORDER")
+BFR_UIFrame.SkillHeader.botBorder:SetSize(760, 1)
+BFR_UIFrame.SkillHeader.botBorder:SetPoint("BOTTOM", 0, 0)
+BFR_UIFrame.SkillHeader.botBorder:SetColorTexture(1, 0.82, 0, 0.3)
+
+BFR_UIFrame.SkillText = BFR_UIFrame.SkillHeader:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+BFR_UIFrame.SkillText:SetPoint("CENTER")
+BFR_UIFrame.SkillText:SetText("Fishing: 0/0      Cooking: 0/0")
+-- ====================
 
 BFR_UIFrame.Legend = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 BFR_UIFrame.Legend:SetPoint("BOTTOMLEFT", 15, 12)
@@ -130,8 +150,8 @@ BFR_UIFrame.Legend:SetText("|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|
 
 -- ================= LEVÝ PANEL =================
 local leftPanel = CreateFrame("Frame", nil, BFR_UIFrame)
-leftPanel:SetSize(300, 420)
-leftPanel:SetPoint("TOPLEFT", 10, -30)
+leftPanel:SetSize(300, 440)
+leftPanel:SetPoint("TOPLEFT", 10, -65)
 
 local scrollFrame = CreateFrame("ScrollFrame", "BFR_ScrollFrame", leftPanel, "UIPanelScrollFrameTemplate")
 scrollFrame:SetPoint("TOPLEFT", 5, -5)
@@ -143,8 +163,8 @@ scrollFrame:SetScrollChild(scrollChild)
 
 -- ================= PRAVÝ PANEL =================
 local rightPanel = CreateFrame("Frame", nil, BFR_UIFrame)
-rightPanel:SetSize(430, 430)
-rightPanel:SetPoint("TOPRIGHT", -15, -30)
+rightPanel:SetSize(430, 440)
+rightPanel:SetPoint("TOPRIGHT", -15, -65)
 
 local rightBg = rightPanel:CreateTexture(nil, "BACKGROUND")
 rightBg:SetAllPoints()
@@ -522,7 +542,7 @@ end
 local function UpdateListVisuals()
     local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
     if BFR_UIFrame.SkillText then
-        BFR_UIFrame.SkillText:SetText(string.format("Fishing: %d/%d  |  Cooking: %d/%d", fLvl, fMax, cLvl, cMax))
+        BFR_UIFrame.SkillText:SetText(string.format("|TInterface\\Icons\\Trade_Fishing:18:18:0:0|t Fishing: %d/%d      |TInterface\\Icons\\INV_Misc_Food_15:18:18:0:0|t Cooking: %d/%d", fLvl, fMax, cLvl, cMax))
     end
     
     if not scrollChild.buttons then return end
