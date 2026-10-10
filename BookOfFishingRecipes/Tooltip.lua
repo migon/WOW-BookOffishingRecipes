@@ -25,10 +25,6 @@ local function AppendFishInfo(tooltip, link)
         tooltip:AddLine(" ")
         tooltip:AddLine("|cFF00FFFF[Book of Fishing Recipes]|r")
         
-        if BFR_CaughtFish and BFR_CaughtFish[itemID] then
-            tooltip:AddLine("|cFF00FF00(✓) You already catched this|r")
-        end
-        
         if fishData.fishingMin then
             tooltip:AddLine("Requires Fishing Lvl: |cFF00FFFF" .. fishData.fishingMin .. "|r")
         end

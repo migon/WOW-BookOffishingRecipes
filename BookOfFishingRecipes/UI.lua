@@ -146,7 +146,7 @@ BFR_UIFrame.SkillText:SetText("Fishing: 0/0      Cooking: 0/0")
 
 BFR_UIFrame.Legend = BFR_UIFrame:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
 BFR_UIFrame.Legend:SetPoint("BOTTOMLEFT", 15, 12)
-BFR_UIFrame.Legend:SetText("|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t = In Bag  |cFF00FF00(✓)|r = Caught  |TInterface\\Icons\\Trade_Fishing:14:14:0:-1|t = Can Catch  |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:-1|t = Can Cook")
+BFR_UIFrame.Legend:SetText("|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t = In Bag  |TInterface\\Icons\\Trade_Fishing:14:14:0:-1|t = Can Catch  |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:-1|t = Can Cook")
 
 -- ================= LEVÝ PANEL =================
 local leftPanel = CreateFrame("Frame", nil, BFR_UIFrame)
@@ -175,10 +175,6 @@ rightBg:SetAlpha(0.6)
 rightPanel.FishName = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNormalHuge")
 rightPanel.FishName:SetPoint("TOP", 0, -15)
 rightPanel.FishName:SetText("Select a fish from the list")
-
-rightPanel.CaughtStatus = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.CaughtStatus:SetPoint("TOP", rightPanel.FishName, "BOTTOM", 0, -5)
-rightPanel.CaughtStatus:SetTextColor(0, 1, 0)
 
 CreateDivider(rightPanel, -65)
 
@@ -256,12 +252,6 @@ local function ShowFishDetails(itemID)
     if not data then return end
     
     rightPanel.FishName:SetText(data.name)
-    
-    if BFR_CaughtFish and BFR_CaughtFish[itemID] then
-        rightPanel.CaughtStatus:SetText("(✓) You already catched this")
-    else
-        rightPanel.CaughtStatus:SetText("")
-    end
     
     local cat = data.category or "Cookable"
     
@@ -502,9 +492,6 @@ function BFR_RefreshUI()
                     if SafeHasItem(itemID) then
                         prefix = prefix .. "|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t "
                     end
-                    if BFR_CaughtFish and BFR_CaughtFish[itemID] then
-                        prefix = prefix .. "|cFF00FF00(✓)|r " 
-                    end
                     
                     btn:SetText(prefix .. data.name)
                     btn:SetScript("OnClick", function(self) 
@@ -553,9 +540,6 @@ local function UpdateListVisuals()
                 local prefix = ""
                 if SafeHasItem(btn.itemID) then
                     prefix = prefix .. "|TInterface\\Buttons\\Button-Backpack-Up:14:14:0:-1|t "
-                end
-                if BFR_CaughtFish and BFR_CaughtFish[btn.itemID] then
-                    prefix = prefix .. "|cFF00FF00(✓)|r " 
                 end
                 
                 local suffix = ""
