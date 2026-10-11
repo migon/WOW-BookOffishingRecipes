@@ -382,6 +382,165 @@ local function ShowFishDetails(itemID)
     end
 end
 
+local function ShowLevelingAdvisor()
+    local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
+    
+    rightPanel.FishName:SetText("★ Leveling Advisor")
+    rightPanel.SourceType:SetText("|cFFFFFF00Current Skills:|r |TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Fishing: " .. fLvl .. "/" .. fMax .. "    |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Cooking: " .. cLvl .. "/" .. cMax)
+    
+    for _, vBtn in ipairs(rightPanel.vendorBtns) do vBtn:Hide() end
+    rightPanel.RecipeButton:SetText("")
+    rightPanel.RecipeButton.itemLink = nil
+    rightPanel.CookInfo:SetText("")
+    rightPanel.VendorsTitle:SetText("")
+    
+    if cLvl >= 300 then
+        rightPanel.BasicInfo:SetText("|cFF00FF00🎉 Congratulations!|r\nYour Cooking skill is at maximum level (300/300)!\nYou can now prepare any fish feast in the realm.")
+        rightPanel.CatchBox:Hide()
+        rightPanel.CookBox:Hide()
+        return
+    end
+    
+    -- Najdeme všechny vařitelné ryby seřazené podle minCook
+    local candidates = {}
+    for id, data in pairs(BFR_Database.Fish) do
+        if data.category == "Cookable" and data.recipes and data.recipes[1] then
+            local r = data.recipes[1]
+            table.insert(candidates, {
+                id = id,
+                data = data,
+                recipe = r,
+                minCook = r.minCook or 1,
+                fishingMin = data.fishingMin or 1
+            })
+        end
+    end
+    table.sort(candidates, function(a, b) return a.minCook < b.minCook end)
+    
+    -- Hledáme optimální rybu: takovou, která je v tréninkovém dosahu (minCook <= cLvl < minCook + 45)
+    local target = nil
+    for _, item in ipairs(candidates) do
+        if cLvl >= item.minCook and cLvl < (item.minCook + 45) then
+            target = item
+            break
+        end
+    end
+    -- Pokud žádná není v tomto okně (např. hráč potřebuje další tier receptu), vezmeme nejbližší vyšší
+    if not target then
+        for _, item in ipairs(candidates) do
+            if item.minCook >= cLvl then
+                target = item
+                break
+            end
+        end
+    end
+    -- Fallback na nejvyšší recept
+    if not target and #candidates > 0 then
+        target = candidates[#candidates]
+    end
+    
+    if not target then
+        rightPanel.BasicInfo:SetText("No leveling advice available.")
+        rightPanel.CatchBox:Hide()
+        rightPanel.CookBox:Hide()
+        return
+    end
+    
+    local isFishLagging = fLvl < target.fishingMin
+    local adviceText = ""
+    
+    if isFishLagging then
+        adviceText = "|cFFFF2020⚠️ Fishing is too low for your Cooking!|r\n"
+        adviceText = adviceText .. "To continue leveling Cooking, you need |cFFFFFF00" .. target.data.name .. "|r.\n"
+        adviceText = adviceText .. "Requires Fishing: |cFFFF2020" .. target.fishingMin .. "|r (your current: |cFFFFFF00" .. fLvl .. "|r)\n\n"
+        adviceText = adviceText .. "|cFFFFFF00👉 Step 1:|r Level up Fishing to |cFF00FF00" .. target.fishingMin .. "+|r in: " .. target.data.catchLocations
+    else
+        adviceText = "|cFF00FF00✅ Ready to Level Up!|r\n"
+        adviceText = adviceText .. "Best fish to catch: |cFFFFFF00" .. target.data.name .. "|r\n"
+        adviceText = adviceText .. "|cFFFFFF00Catch Locations:|r " .. target.data.catchLocations .. "\n"
+        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r " .. target.fishingMin .. " (You have " .. fLvl .. " ✅)\n\n"
+        adviceText = adviceText .. "|cFFFFFF00👉 Action:|r Catch this fish and cook it until Cooking reaches ~" .. (target.minCook + 40) .. "!"
+    end
+    rightPanel.BasicInfo:SetText(adviceText)
+    
+    -- Spodní boxy
+    rightPanel.CatchBox:Show()
+    if not isFishLagging then
+        rightPanel.CatchBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+        rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Fishing Ready (" .. fLvl .. "/" .. target.fishingMin .. ")")
+    else
+        rightPanel.CatchBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+        rightPanel.CatchBox.Text:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Need Fishing " .. target.fishingMin .. " (" .. fLvl .. ")")
+    end
+    
+    rightPanel.CookBox:Show()
+    if cLvl >= target.minCook then
+        rightPanel.CookBox.bg:SetColorTexture(0, 0.4, 0, 0.6)
+        rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Cooking Ready (" .. cLvl .. "/" .. target.minCook .. ")")
+    else
+        rightPanel.CookBox.bg:SetColorTexture(0.5, 0, 0, 0.6)
+        rightPanel.CookBox.Text:SetText("|TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Need Cooking " .. target.minCook .. " (" .. cLvl .. ")")
+    end
+    
+    -- Recept
+    local recipe = target.recipe
+    if recipe then
+        local itemName = recipe.name or "Recipe"
+        local itemLink = "|cff1eff00|Hitem:" .. recipe.itemID .. ":0:0:0:0:0:0:0|h[" .. itemName .. "]|h|r"
+        local priceStr = FormatMoney(recipe.price)
+        rightPanel.RecipeButton.itemLink = itemLink
+        rightPanel.RecipeButton:SetText("Recipe: " .. itemLink .. priceStr)
+        rbText:SetTextColor(1, 0.82, 0)
+        rightPanel.CookInfo:SetText("|cFF00FF00Optimal for Cooking Lvl:|r " .. recipe.cookLvl)
+        
+        local yPos = -275
+        local listData = recipe.sourceType == "Drop" and recipe.drops or recipe.vendors
+        if listData then
+            local playerFaction = UnitFactionGroup("player")
+            local filteredList = {}
+            for _, info in ipairs(listData) do
+                if not info.faction or info.faction == "Neutral" or info.faction == playerFaction then
+                    table.insert(filteredList, info)
+                end
+            end
+            if #filteredList > 0 then
+                rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|cFFFFFF00Recipe drops from:|r" or "|cFFFFFF00Vendors for this recipe:|r")
+                for i, info in ipairs(filteredList) do
+                    if not rightPanel.vendorBtns[i] then
+                        local vBtn = CreateFrame("Button", nil, rightPanel)
+                        vBtn:SetSize(350, 15)
+                        local vText = vBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+                        vText:SetPoint("LEFT", 0, 0)
+                        vBtn:SetFontString(vText)
+                        vBtn.textObject = vText
+                        vBtn:SetScript("OnEnter", function(self) self.textObject:SetTextColor(1, 0.82, 0) end)
+                        vBtn:SetScript("OnLeave", function(self) self.textObject:SetTextColor(1, 1, 1) end)
+                        rightPanel.vendorBtns[i] = vBtn
+                    end
+                    local vBtn = rightPanel.vendorBtns[i]
+                    vBtn:SetPoint("TOPLEFT", 25, yPos)
+                    vBtn.textObject:SetTextColor(1, 1, 1)
+                    vBtn:SetText("• " .. info.name)
+                    vBtn:Show()
+                    vBtn:SetScript("OnClick", function()
+                        if IsShiftKeyDown() then
+                            local npcName = string.match(info.name, "^(.-)%s*%(") or info.name
+                            npcName = string.match(npcName, "^%s*(.-)%s*$") or npcName
+                            local editBox = ChatEdit_GetActiveWindow()
+                            if editBox then editBox:Insert("/tar " .. npcName) end
+                        else
+                            SetMapMarker(info.mapID, info.x, info.y, info.name)
+                        end
+                    end)
+                    yPos = yPos - 18
+                end
+            else
+                rightPanel.VendorsTitle:SetText("|cFF999999(No vendors available for your faction)|r")
+            end
+        end
+    end
+end
+
 if not BFR_CollapsedCats then BFR_CollapsedCats = {} end
 
 function BFR_RefreshUI()
@@ -414,6 +573,64 @@ function BFR_RefreshUI()
     end
     
     local yOffset = -5
+    
+    -- Tlačítko Leveling Advisor nad kategoriemi
+    local advisorBtn = CreateFrame("Button", nil, scrollChild)
+    advisorBtn:SetSize(250, 22)
+    advisorBtn:SetPoint("TOPLEFT", 5, yOffset)
+    
+    local advBg = advisorBtn:CreateTexture(nil, "BACKGROUND")
+    advBg:SetAllPoints()
+    advBg:SetColorTexture(0.25, 0.2, 0.05, 0.7)
+    
+    local advText = advisorBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+    advText:SetPoint("LEFT", 8, 0)
+    advText:SetText("|cFFFFD100★ Leveling Advisor|r")
+    advisorBtn:SetFontString(advText)
+    advisorBtn.textObject = advText
+    
+    local advHighlight = advisorBtn:CreateTexture(nil, "ARTWORK")
+    advHighlight:SetAllPoints()
+    advHighlight:SetColorTexture(1, 0.82, 0, 0.25)
+    advHighlight:Hide()
+    advisorBtn.highlightBg = advHighlight
+    advisorBtn.baseColor = {1, 0.82, 0}
+    advisorBtn.itemID = "ADVISOR"
+    
+    if BFR_SelectedFish == "ADVISOR" then
+        advHighlight:Show()
+        advText:SetTextColor(1, 1, 1)
+    end
+    
+    advisorBtn:SetScript("OnEnter", function(self)
+        self.textObject:SetTextColor(1, 1, 1)
+        self.highlightBg:Show()
+    end)
+    advisorBtn:SetScript("OnLeave", function(self)
+        if BFR_SelectedFish ~= "ADVISOR" then
+            self.textObject:SetTextColor(1, 0.82, 0)
+            self.highlightBg:Hide()
+        end
+    end)
+    advisorBtn:SetScript("OnClick", function(self)
+        BFR_SelectedFish = "ADVISOR"
+        ShowLevelingAdvisor()
+        if scrollChild.buttons then
+            for _, b in ipairs(scrollChild.buttons) do
+                if b.itemID then
+                    if b.itemID == "ADVISOR" then
+                        b.highlightBg:Show()
+                        b.textObject:SetTextColor(1, 1, 1)
+                    else
+                        b.highlightBg:Hide()
+                        b.textObject:SetTextColor(b.baseColor[1], b.baseColor[2], b.baseColor[3])
+                    end
+                end
+            end
+        end
+    end)
+    table.insert(scrollChild.buttons, advisorBtn)
+    yOffset = yOffset - 27
     
     for _, cat in ipairs(categories) do
         local list = categoryData[cat]
@@ -557,7 +774,9 @@ local function UpdateListVisuals()
         end
     end
     
-    if BFR_SelectedFish then
+    if BFR_SelectedFish == "ADVISOR" then
+        ShowLevelingAdvisor()
+    elseif BFR_SelectedFish then
         local data = BFR_Database.Fish[BFR_SelectedFish]
         if data then
             if fLvl >= (data.fishingMin or 1) then
@@ -590,6 +809,12 @@ BFR_UIFrame:SetScript("OnEvent", function(self, event, ...)
 end)
 
 BFR_UIFrame:SetScript("OnShow", function()
+    if not BFR_SelectedFish then
+        BFR_SelectedFish = "ADVISOR"
+    end
     BFR_RefreshUI()
     UpdateListVisuals()
+    if BFR_SelectedFish == "ADVISOR" then
+        ShowLevelingAdvisor()
+    end
 end)
