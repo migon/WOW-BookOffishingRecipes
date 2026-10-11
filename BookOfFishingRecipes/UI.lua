@@ -8,6 +8,42 @@ local function CreateDivider(parent, yOffset)
     return tex
 end
 
+local function CreateCardBox(parent, width, height)
+    local box = CreateFrame("Frame", nil, parent, "BackdropTemplate")
+    box:SetSize(width, height)
+    
+    local bg = box:CreateTexture(nil, "BACKGROUND")
+    bg:SetAllPoints()
+    bg:SetColorTexture(0, 0, 0, 0.45)
+    box.bg = bg
+    
+    local borderT = box:CreateTexture(nil, "BORDER")
+    borderT:SetHeight(1)
+    borderT:SetPoint("TOPLEFT", 0, 0)
+    borderT:SetPoint("TOPRIGHT", 0, 0)
+    borderT:SetColorTexture(1, 0.82, 0, 0.25)
+    
+    local borderB = box:CreateTexture(nil, "BORDER")
+    borderB:SetHeight(1)
+    borderB:SetPoint("BOTTOMLEFT", 0, 0)
+    borderB:SetPoint("BOTTOMRIGHT", 0, 0)
+    borderB:SetColorTexture(1, 0.82, 0, 0.25)
+    
+    local borderL = box:CreateTexture(nil, "BORDER")
+    borderL:SetWidth(1)
+    borderL:SetPoint("TOPLEFT", 0, 0)
+    borderL:SetPoint("BOTTOMLEFT", 0, 0)
+    borderL:SetColorTexture(1, 0.82, 0, 0.25)
+    
+    local borderR = box:CreateTexture(nil, "BORDER")
+    borderR:SetWidth(1)
+    borderR:SetPoint("TOPRIGHT", 0, 0)
+    borderR:SetPoint("BOTTOMRIGHT", 0, 0)
+    borderR:SetColorTexture(1, 0.82, 0, 0.25)
+    
+    return box
+end
+
 local function SetMapMarker(mapID, x, y, name)
     if not mapID or not x or not y then
         print("|cFFFF0000[BFR]|r Chybí data pro mapu u: " .. (name or "Unknown"))
@@ -178,19 +214,28 @@ rightPanel.FishName:SetText("Select a fish from the list")
 
 CreateDivider(rightPanel, -50)
 
-rightPanel.SourceType = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.SourceType:SetPoint("TOPLEFT", 20, -65)
-rightPanel.SourceType:SetWidth(390)
+-- CARD 1: Info Box (pro rybu nebo Leveling Advisor)
+rightPanel.InfoBox = CreateCardBox(rightPanel, 400, 115)
+rightPanel.InfoBox:SetPoint("TOP", 0, -56)
+
+rightPanel.SourceType = rightPanel.InfoBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.SourceType:SetPoint("TOPLEFT", 12, -8)
+rightPanel.SourceType:SetWidth(376)
 rightPanel.SourceType:SetJustifyH("LEFT")
 
-rightPanel.BasicInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.BasicInfo:SetPoint("TOPLEFT", rightPanel.SourceType, "BOTTOMLEFT", 0, -8)
-rightPanel.BasicInfo:SetWidth(390)
+rightPanel.BasicInfo = rightPanel.InfoBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.BasicInfo:SetPoint("TOPLEFT", rightPanel.SourceType, "BOTTOMLEFT", 0, -6)
+rightPanel.BasicInfo:SetWidth(376)
 rightPanel.BasicInfo:SetJustifyH("LEFT")
+rightPanel.BasicInfo:SetSpacing(3)
 
-rightPanel.RecipeButton = CreateFrame("Button", nil, rightPanel)
-rightPanel.RecipeButton:SetSize(390, 20)
-rightPanel.RecipeButton:SetPoint("TOPLEFT", rightPanel.BasicInfo, "BOTTOMLEFT", 0, -10)
+-- CARD 2: Recipe Box
+rightPanel.RecipeBox = CreateCardBox(rightPanel, 400, 56)
+rightPanel.RecipeBox:SetPoint("TOP", rightPanel.InfoBox, "BOTTOM", 0, -8)
+
+rightPanel.RecipeButton = CreateFrame("Button", nil, rightPanel.RecipeBox)
+rightPanel.RecipeButton:SetSize(376, 18)
+rightPanel.RecipeButton:SetPoint("TOPLEFT", 12, -8)
 local rbText = rightPanel.RecipeButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 rbText:SetPoint("LEFT", 0, 0)
 rightPanel.RecipeButton:SetFontString(rbText)
@@ -213,21 +258,29 @@ rightPanel.RecipeButton:SetScript("OnClick", function(self)
     end
 end)
 
-rightPanel.CookInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+rightPanel.CookInfo = rightPanel.RecipeBox:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
 rightPanel.CookInfo:SetPoint("TOPLEFT", rightPanel.RecipeButton, "BOTTOMLEFT", 0, -4)
-rightPanel.CookInfo:SetWidth(390)
+rightPanel.CookInfo:SetWidth(376)
 rightPanel.CookInfo:SetJustifyH("LEFT")
-rightPanel.CookInfo:SetJustifyV("TOP")
 
-rightPanel.VendorsTitle = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.VendorsTitle:SetPoint("TOPLEFT", rightPanel.CookInfo, "BOTTOMLEFT", 0, -8)
+-- CARD 3: Vendors Box
+rightPanel.VendorsBox = CreateCardBox(rightPanel, 400, 115)
+rightPanel.VendorsBox:SetPoint("TOP", rightPanel.RecipeBox, "BOTTOM", 0, -8)
+
+rightPanel.VendorsTitle = rightPanel.VendorsBox:CreateFontString(nil, "OVERLAY", "GameFontNormal")
+rightPanel.VendorsTitle:SetPoint("TOPLEFT", 12, -8)
 rightPanel.VendorsTitle:SetJustifyH("LEFT")
+
+rightPanel.VendorHint = rightPanel.VendorsBox:CreateFontString(nil, "OVERLAY", "GameFontDisableSmall")
+rightPanel.VendorHint:SetPoint("BOTTOMLEFT", 12, 6)
+rightPanel.VendorHint:SetText("|cFF888888• Left-Click: Set Map Waypoint   |   Shift-Click: /tar macro|r")
 
 rightPanel.vendorBtns = {}
 
+-- Spodní status boxy (Fishing a Cooking)
 rightPanel.CatchBox = CreateFrame("Frame", nil, rightPanel, "BackdropTemplate")
-rightPanel.CatchBox:SetSize(185, 24)
-rightPanel.CatchBox:SetPoint("BOTTOMLEFT", 15, 25)
+rightPanel.CatchBox:SetSize(195, 26)
+rightPanel.CatchBox:SetPoint("BOTTOMLEFT", 15, 12)
 rightPanel.CatchBox.bg = rightPanel.CatchBox:CreateTexture(nil, "BACKGROUND")
 rightPanel.CatchBox.bg:SetAllPoints()
 rightPanel.CatchBox.Text = rightPanel.CatchBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -235,8 +288,8 @@ rightPanel.CatchBox.Text:SetPoint("CENTER")
 rightPanel.CatchBox:Hide()
 
 rightPanel.CookBox = CreateFrame("Frame", nil, rightPanel, "BackdropTemplate")
-rightPanel.CookBox:SetSize(185, 24)
-rightPanel.CookBox:SetPoint("BOTTOMRIGHT", -15, 25)
+rightPanel.CookBox:SetSize(195, 26)
+rightPanel.CookBox:SetPoint("BOTTOMRIGHT", -15, 12)
 rightPanel.CookBox.bg = rightPanel.CookBox:CreateTexture(nil, "BACKGROUND")
 rightPanel.CookBox.bg:SetAllPoints()
 rightPanel.CookBox.Text = rightPanel.CookBox:CreateFontString(nil, "OVERLAY", "GameFontHighlightSmall")
@@ -250,16 +303,17 @@ local function ShowFishDetails(itemID)
     rightPanel.FishName:SetText(data.name)
     
     local cat = data.category or "Cookable"
-    
     local sourceText = ""
     if cat == "Cookable" and data.recipes and data.recipes[1] then
-        sourceText = "   |cFFFFFF00Source:|r " .. (data.recipes[1].sourceType or "Unknown")
+        sourceText = "   |cFFFFD100Source:|r " .. (data.recipes[1].sourceType or "Unknown")
     end
     
-    rightPanel.SourceType:SetText("|cFFFFFF00Category:|r " .. cat .. sourceText)
+    -- Card 1: Info Box
+    rightPanel.InfoBox.bg:SetColorTexture(0, 0, 0, 0.45)
+    rightPanel.SourceType:SetText("|TInterface\\Icons\\INV_Misc_Fish_02:14:14:0:0|t |cFFFFD100Category:|r " .. cat .. sourceText)
     
-    local basicText = "|cFFFFFF00Requires Fishing Lvl:|r " .. (data.fishingMin or "1") .. "\n"
-    basicText = basicText .. "|cFFFFFF00Catch Locations:|r " .. (data.catchLocations or "Unknown")
+    local basicText = "|cFFFFD100• Required Fishing Lvl:|r " .. (data.fishingMin or "1") .. "\n"
+    basicText = basicText .. "|cFFFFD100• Catch Locations:|r " .. (data.catchLocations or "Unknown")
     rightPanel.BasicInfo:SetText(basicText)
     
     for _, vBtn in ipairs(rightPanel.vendorBtns) do vBtn:Hide() end
@@ -293,6 +347,11 @@ local function ShowFishDetails(itemID)
     end
     
     if cat == "Cookable" then
+        rightPanel.RecipeBox:Show()
+        rightPanel.RecipeButton:Show()
+        rightPanel.CookInfo:Show()
+        rightPanel.VendorsBox:Show()
+        
         local recipe = data.recipes and data.recipes[1]
         if recipe then
             local itemName = recipe.name or "Recipe"
@@ -303,11 +362,9 @@ local function ShowFishDetails(itemID)
             rightPanel.RecipeButton:SetText("Recipe: " .. itemLink .. priceStr)
             rbText:SetTextColor(1, 0.82, 0)
             
-            rightPanel.CookInfo:SetText("|cFF00FF00Best for Cooking Lvl:|r " .. recipe.cookLvl)
+            rightPanel.CookInfo:SetText("|cFF00FF00Optimal for Cooking Lvl:|r " .. recipe.cookLvl)
             
-            local yPos = -275
             local listData = recipe.sourceType == "Drop" and recipe.drops or recipe.vendors
-            
             if listData then
                 local playerFaction = UnitFactionGroup("player")
                 local filteredList = {}
@@ -318,64 +375,67 @@ local function ShowFishDetails(itemID)
                 end
                 
                 if #filteredList > 0 then
-                    rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|cFFFFFF00Recipe drops from:|r" or "|cFFFFFF00Vendors:|r")
+                    rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|TInterface\\Icons\\INV_Misc_Bag_08:14:14:0:0|t |cFFFFD100Recipe Drops From:|r" or "|TInterface\\Icons\\INV_Misc_Coin_01:14:14:0:0|t |cFFFFD100Recipe Vendors:|r")
+                    rightPanel.VendorHint:Show()
                     for i, info in ipairs(filteredList) do
                         if not rightPanel.vendorBtns[i] then
-                            local vBtn = CreateFrame("Button", nil, rightPanel)
-                            vBtn:SetSize(350, 15)
+                            local vBtn = CreateFrame("Button", nil, rightPanel.VendorsBox)
+                            vBtn:SetSize(370, 16)
                             local vText = vBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
                             vText:SetPoint("LEFT", 0, 0)
                             vBtn:SetFontString(vText)
                             vBtn.textObject = vText 
-                            
                             vBtn:SetScript("OnEnter", function(self) self.textObject:SetTextColor(1, 0.82, 0) end)
                             vBtn:SetScript("OnLeave", function(self) self.textObject:SetTextColor(1, 1, 1) end)
-                            
                             rightPanel.vendorBtns[i] = vBtn
                         end
                         
                         local vBtn = rightPanel.vendorBtns[i]
                         vBtn:ClearAllPoints()
-                        vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 10, -2 - (i-1)*16)
+                        vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 6, -4 - (i-1)*16)
                         vBtn.textObject:SetTextColor(1, 1, 1) 
                         vBtn:SetText("• " .. info.name)
                         vBtn:Show()
                         
                         vBtn:SetScript("OnClick", function()
                             if IsShiftKeyDown() then
-                                -- Získat čisté jméno bez zóny v závorce (např. "Zansoa")
                                 local npcName = string.match(info.name, "^(.-)%s*%(") or info.name
                                 npcName = string.match(npcName, "^%s*(.-)%s*$") or npcName
-                                
-                                -- Vloží makro do editboxu pouze pokud je chat otevřený
                                 local editBox = ChatEdit_GetActiveWindow()
-                                if editBox then
-                                    editBox:Insert("/tar " .. npcName)
-                                end
+                                if editBox then editBox:Insert("/tar " .. npcName) end
                             else
                                 SetMapMarker(info.mapID, info.x, info.y, info.name)
                             end
                         end)
-                        
-                        yPos = yPos - 18
                     end
                 else
                     rightPanel.VendorsTitle:SetText("|cFF999999(No vendors available for your faction)|r")
+                    rightPanel.VendorHint:Hide()
                 end
             end
         end
     elseif cat == "Crafting" then
+        rightPanel.RecipeBox:Show()
+        rightPanel.RecipeButton:Show()
+        rightPanel.CookInfo:Show()
+        rightPanel.VendorsBox:Hide()
+        rightPanel.VendorHint:Hide()
+        
         local craft = data.crafts and data.crafts[1]
         if craft then
             local itemLink = "|cff1eff00|Hitem:" .. craft.itemID .. ":0:0:0:0:0:0:0|h[" .. craft.name .. "]|h|r"
             rightPanel.RecipeButton.itemLink = itemLink
             rightPanel.RecipeButton:SetText("Used in: " .. itemLink)
             rbText:SetTextColor(1, 0.82, 0)
-            
             rightPanel.CookInfo:SetText("|cFF00FF00Profession:|r " .. craft.profession .. " (" .. craft.profLvl .. ")")
         end
     elseif cat == "Consumable" then
-        rightPanel.CookInfo:SetText("|cFFFFFF00Notes:|r\n" .. (data.notes or ""))
+        rightPanel.RecipeBox:Show()
+        rightPanel.RecipeButton:Hide()
+        rightPanel.CookInfo:Show()
+        rightPanel.CookInfo:SetText("|cFFFFD100• Notes:|r " .. (data.notes or "None"))
+        rightPanel.VendorsBox:Hide()
+        rightPanel.VendorHint:Hide()
     end
 end
 
@@ -383,7 +443,6 @@ local function ShowLevelingAdvisor()
     local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
     
     rightPanel.FishName:SetText("|TInterface\\Icons\\INV_Misc_Book_09:20:20:0:0|t Leveling Advisor")
-    rightPanel.SourceType:SetText("|cFFFFFF00Current Skills:|r  |TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Fishing: " .. fLvl .. "/" .. fMax .. "    |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Cooking: " .. cLvl .. "/" .. cMax)
     
     for _, vBtn in ipairs(rightPanel.vendorBtns) do vBtn:Hide() end
     rightPanel.RecipeButton:SetText("")
@@ -392,7 +451,11 @@ local function ShowLevelingAdvisor()
     rightPanel.VendorsTitle:SetText("")
     
     if cLvl >= 300 then
-        rightPanel.BasicInfo:SetText("|cFF00FF00Congratulations!|r\nYour Cooking skill is at maximum level (300/300)!\nYou can now prepare any fish feast in the realm.")
+        rightPanel.InfoBox.bg:SetColorTexture(0, 0.28, 0, 0.45)
+        rightPanel.SourceType:SetText("|cFF00FF00Congratulations!|r")
+        rightPanel.BasicInfo:SetText("Your Cooking skill is at maximum level (300/300)!\nYou can now prepare any fish feast in the realm.")
+        rightPanel.RecipeBox:Hide()
+        rightPanel.VendorsBox:Hide()
         rightPanel.CatchBox:Hide()
         rightPanel.CookBox:Hide()
         return
@@ -422,7 +485,6 @@ local function ShowLevelingAdvisor()
             break
         end
     end
-    -- Pokud žádná není v tomto okně (např. hráč potřebuje další tier receptu), vezmeme nejbližší vyšší
     if not target then
         for _, item in ipairs(candidates) do
             if item.minCook >= cLvl then
@@ -431,13 +493,16 @@ local function ShowLevelingAdvisor()
             end
         end
     end
-    -- Fallback na nejvyšší recept
     if not target and #candidates > 0 then
         target = candidates[#candidates]
     end
     
     if not target then
+        rightPanel.InfoBox.bg:SetColorTexture(0, 0, 0, 0.45)
+        rightPanel.SourceType:SetText("No advice available")
         rightPanel.BasicInfo:SetText("No leveling advice available.")
+        rightPanel.RecipeBox:Hide()
+        rightPanel.VendorsBox:Hide()
         rightPanel.CatchBox:Hide()
         rightPanel.CookBox:Hide()
         return
@@ -447,16 +512,19 @@ local function ShowLevelingAdvisor()
     local adviceText = ""
     
     if isFishLagging then
-        adviceText = "|cFFFF2020[!] Fishing is too low for your Cooking!|r\n"
-        adviceText = adviceText .. "|cFFFFFF00Target Fish:|r " .. target.data.name .. "\n"
-        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r |cFFFF2020" .. target.fishingMin .. "|r (your current: |cFFFFFF00" .. fLvl .. "|r)\n"
-        adviceText = adviceText .. "|cFFFFFF00• Next Step:|r Level up Fishing to |cFF00FF00" .. target.fishingMin .. "+|r in: " .. target.data.catchLocations
+        rightPanel.InfoBox.bg:SetColorTexture(0.35, 0.05, 0.05, 0.5)
+        rightPanel.SourceType:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t |cFFFF3030[ Fishing Level Too Low! ]|r   |cFFCCCCCC(Fishing: " .. fLvl .. "/" .. fMax .. "  |  Cooking: " .. cLvl .. "/" .. cMax .. ")|r")
+        adviceText = "|cFFFFD100• Target Fish:|r " .. target.data.name .. "\n"
+        adviceText = adviceText .. "|cFFFFD100• Req. Fishing:|r |cFFFF3030" .. target.fishingMin .. "|r (your current skill is |cFFFFFF00" .. fLvl .. "|r)\n"
+        adviceText = adviceText .. "|cFFFFD100• Priority Step:|r Level up Fishing to |cFF00FF00" .. target.fishingMin .. "+|r in: " .. target.data.catchLocations .. "\n"
+        adviceText = adviceText .. "|cFFFFD100• Next Goal:|r Catch " .. target.data.name .. " to continue Cooking."
     else
-        adviceText = "|cFF00FF00[ Ready to Level Up ]|r\n"
-        adviceText = adviceText .. "|cFFFFFF00Best fish to catch:|r " .. target.data.name .. "\n"
-        adviceText = adviceText .. "|cFFFFFF00Catch Locations:|r " .. target.data.catchLocations .. "\n"
-        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r " .. target.fishingMin .. " (You have " .. fLvl .. " - |cFF00FF00Ready|r)\n"
-        adviceText = adviceText .. "|cFFFFFF00• Goal:|r Cook this fish to Cooking level " .. (target.minCook + 40) .. "!"
+        rightPanel.InfoBox.bg:SetColorTexture(0, 0.28, 0, 0.45)
+        rightPanel.SourceType:SetText("|TInterface\\Icons\\Trade_Fishing:14:14:0:0|t |cFF00FF00[ Ready to Level Up ]|r   |cFFCCCCCC(Fishing: " .. fLvl .. "/" .. fMax .. "  |  Cooking: " .. cLvl .. "/" .. cMax .. ")|r")
+        adviceText = "|cFFFFD100• Target Fish:|r " .. target.data.name .. "\n"
+        adviceText = adviceText .. "|cFFFFD100• Where to Catch:|r " .. target.data.catchLocations .. "\n"
+        adviceText = adviceText .. "|cFFFFD100• Req. Fishing:|r " .. target.fishingMin .. "  |cFF00FF00(You have " .. fLvl .. " - Ready)|r\n"
+        adviceText = adviceText .. "|cFFFFD100• Training Goal:|r Cook this fish to Cooking level |cFF00FF00" .. (target.minCook + 40) .. "|r!"
     end
     rightPanel.BasicInfo:SetText(adviceText)
     
@@ -480,6 +548,11 @@ local function ShowLevelingAdvisor()
     end
     
     -- Recept
+    rightPanel.RecipeBox:Show()
+    rightPanel.RecipeButton:Show()
+    rightPanel.CookInfo:Show()
+    rightPanel.VendorsBox:Show()
+    
     local recipe = target.recipe
     if recipe then
         local itemName = recipe.name or "Recipe"
@@ -500,11 +573,12 @@ local function ShowLevelingAdvisor()
                 end
             end
             if #filteredList > 0 then
-                rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|cFFFFFF00Recipe drops from:|r" or "|cFFFFFF00Vendors for this recipe:|r")
+                rightPanel.VendorsTitle:SetText(recipe.sourceType == "Drop" and "|TInterface\\Icons\\INV_Misc_Bag_08:14:14:0:0|t |cFFFFD100Recipe Drops From:|r" or "|TInterface\\Icons\\INV_Misc_Coin_01:14:14:0:0|t |cFFFFD100Recipe Vendors:|r")
+                rightPanel.VendorHint:Show()
                 for i, info in ipairs(filteredList) do
                     if not rightPanel.vendorBtns[i] then
-                        local vBtn = CreateFrame("Button", nil, rightPanel)
-                        vBtn:SetSize(350, 15)
+                        local vBtn = CreateFrame("Button", nil, rightPanel.VendorsBox)
+                        vBtn:SetSize(370, 16)
                         local vText = vBtn:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
                         vText:SetPoint("LEFT", 0, 0)
                         vBtn:SetFontString(vText)
@@ -515,7 +589,7 @@ local function ShowLevelingAdvisor()
                     end
                     local vBtn = rightPanel.vendorBtns[i]
                     vBtn:ClearAllPoints()
-                    vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 10, -2 - (i-1)*18)
+                    vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 6, -4 - (i-1)*16)
                     vBtn.textObject:SetTextColor(1, 1, 1)
                     vBtn:SetText("• " .. info.name)
                     vBtn:Show()
@@ -532,6 +606,7 @@ local function ShowLevelingAdvisor()
                 end
             else
                 rightPanel.VendorsTitle:SetText("|cFF999999(No vendors available for your faction)|r")
+                rightPanel.VendorHint:Hide()
             end
         end
     end
