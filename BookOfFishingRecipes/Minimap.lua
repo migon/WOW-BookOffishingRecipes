@@ -14,7 +14,7 @@ icon:SetTexture("Interface\\Icons\\INV_Misc_Food_15")
 icon:SetSize(20, 20)
 icon:SetPoint("TOPLEFT", 6, -5)
 
--- Kruhová maska, aby ikonka byla kulatá a ladila s rámečkem
+-- Kruhová maska, aby byla ikonka kulatá a lícovala s rámečkem
 pcall(function()
     local mask = minimapButton:CreateMaskTexture()
     mask:SetTexture("Interface\\CharacterFrame\\TempPortraitAlphaMask", "CLAMPTOBLACKADDITIVE", "CLAMPTOBLACKADDITIVE")
@@ -31,29 +31,51 @@ border:SetPoint("TOPLEFT", 0, 0)
 -- Zvýraznění při najetí myší
 minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 
--- Výchozí pozice na obvodu minimapy (cca 10 hodin, kde je v UI volné místo)
-local defaultAngle = math.rad(140)
-local radius = 80
-minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(defaultAngle) * radius, math.sin(defaultAngle) * radius)
+-- Dynamický přepočet pozice podle skutečné velikosti minimapy
+local function UpdatePosition(angleDeg)
+    local angleRad = math.rad(angleDeg or 140)
+    local w = (Minimap:GetWidth() / 2) + 7
+    local h = (Minimap:GetHeight() / 2) + 7
+    local x = math.cos(angleRad) * w
+    local y = math.sin(angleRad) * h
+    minimapButton:ClearAllPoints()
+    minimapButton:SetPoint("CENTER", Minimap, "CENTER", x, y)
+end
 
--- Možnost přetahování tlačítka myší po obvodu minimapy
-local function MoveButton()
+-- Aktualizace při tažení myší podél obvodu minimapy
+local function OnDragUpdate()
     local mx, my = Minimap:GetCenter()
     local cx, cy = GetCursorPosition()
     local scale = Minimap:GetEffectiveScale()
     if not mx or not my or not cx or not cy or not scale then return end
     cx, cy = cx / scale, cy / scale
-    local angle = math.atan2(cy - my, cx - mx)
-    minimapButton:ClearAllPoints()
-    minimapButton:SetPoint("CENTER", Minimap, "CENTER", math.cos(angle) * radius, math.sin(angle) * radius)
+    local angleDeg = math.deg(math.atan2(cy - my, cx - mx)) % 360
+    if BFR_Settings then
+        BFR_Settings.minimapPos = angleDeg
+    end
+    UpdatePosition(angleDeg)
 end
 
 minimapButton:SetScript("OnDragStart", function(self)
-    self:SetScript("OnUpdate", MoveButton)
+    self:SetScript("OnUpdate", OnDragUpdate)
 end)
 
 minimapButton:SetScript("OnDragStop", function(self)
     self:SetScript("OnUpdate", nil)
+end)
+
+-- Načtení pozice při startu / po načtení addonu
+minimapButton:RegisterEvent("PLAYER_LOGIN")
+minimapButton:SetScript("OnEvent", function(self, event)
+    if not BFR_Settings then BFR_Settings = {} end
+    local pos = BFR_Settings.minimapPos or 140
+    UpdatePosition(pos)
+end)
+
+-- Spustit i po malé prodlevě pro jistotu (kdyby Minimap ještě nebyl naplno inicializován)
+C_Timer.After(0.1, function()
+    local pos = (BFR_Settings and BFR_Settings.minimapPos) or 140
+    UpdatePosition(pos)
 end)
 
 -- Kliknutí na tlačítko (otevření/zavření knihy)

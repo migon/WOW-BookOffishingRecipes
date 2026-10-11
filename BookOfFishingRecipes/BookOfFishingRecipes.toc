@@ -3,7 +3,7 @@
 ## Notes: Zobrazuje recepty na vaření z ulovených ryb a přidává speciální okno.
 ## Author: Antigravity & User
 ## Version: 1.0
-## SavedVariables: BFR_CaughtFish
+## SavedVariables: BFR_Settings
 
 Database.lua
 Core.lua
