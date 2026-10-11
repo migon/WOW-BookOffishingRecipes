@@ -17,9 +17,9 @@ BFR_Database.Fish = {
             }
         }
     },
-    [787] = {
+    [6303] = {
         category = "Cookable",
-        name = "Slitherskin Mackerel",
+        name = "Raw Slitherskin Mackerel",
         catchLocations = "Durotar, Westfall, Teldrassil, Tirisfal Glades",
         fishingMin = 1,
         recipes = {
@@ -32,7 +32,7 @@ BFR_Database.Fish = {
             }
         }
     },
-    [6303] = {
+    [6289] = {
         category = "Cookable",
         name = "Raw Longjaw Mud Snapper",
         catchLocations = "Elwynn Forest, Durotar, Mulgore, Darkshore",
@@ -59,7 +59,7 @@ BFR_Database.Fish = {
             }
         }
     },
-    [6362] = {
+    [6361] = {
         category = "Cookable",
         name = "Raw Rainbow Fin Albacore",
         catchLocations = "The Barrens, Loch Modan, Westfall, Darkshore",

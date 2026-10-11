@@ -115,6 +115,8 @@ end
 
 local function SafeHasItem(itemID)
     if not itemID then return false end
+    
+    -- 1. Standardní kontrola počtu v inventáři přes API
     local ok, count = pcall(function()
         if C_Item and C_Item.GetItemCount then
             return C_Item.GetItemCount(itemID)
@@ -123,7 +125,49 @@ local function SafeHasItem(itemID)
         end
         return 0
     end)
-    return ok and (type(count) == "number" and count > 0)
+    if ok and type(count) == "number" and count > 0 then
+        return true
+    end
+    
+    -- 2. Přímé fyzické prohledání všech slotů v batozích 0 až 5 (včetně Reagent Bagu)
+    -- Hledáme podle ID i podle přesného jména ryby pro 100% spolehlivost!
+    local targetName = BFR_Database and BFR_Database.Fish and BFR_Database.Fish[itemID] and BFR_Database.Fish[itemID].name
+    
+    for bag = 0, 5 do
+        local numSlots = 0
+        if C_Container and C_Container.GetContainerNumSlots then
+            numSlots = C_Container.GetContainerNumSlots(bag) or 0
+        elseif GetContainerNumSlots then
+            numSlots = GetContainerNumSlots(bag) or 0
+        end
+        
+        for slot = 1, numSlots do
+            local slotID = nil
+            if C_Container and C_Container.GetContainerItemID then
+                slotID = C_Container.GetContainerItemID(bag, slot)
+            elseif GetContainerItemID then
+                slotID = GetContainerItemID(bag, slot)
+            end
+            
+            if slotID and slotID == itemID then
+                return true
+            end
+            
+            if targetName then
+                local link = nil
+                if C_Container and C_Container.GetContainerItemLink then
+                    link = C_Container.GetContainerItemLink(bag, slot)
+                elseif GetContainerItemLink then
+                    link = GetContainerItemLink(bag, slot)
+                end
+                if link and string.find(link, targetName, 1, true) then
+                    return true
+                end
+            end
+        end
+    end
+    
+    return false
 end
 
 local function GetPlayerSkills()
