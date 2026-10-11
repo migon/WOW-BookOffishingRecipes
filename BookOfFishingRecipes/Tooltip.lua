@@ -67,6 +67,10 @@ end
 if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
         if not tooltip then return end
+        if tooltip == ShoppingTooltip1 or tooltip == ShoppingTooltip2 then return end
+        local tName = tooltip.GetName and tooltip:GetName()
+        if tName and string.find(tName, "Shopping") then return end
+        
         local itemID = data and data.id
         local link = data and (data.hyperlink or (itemID and ("item:" .. itemID)))
         if not link and tooltip.GetItem then
