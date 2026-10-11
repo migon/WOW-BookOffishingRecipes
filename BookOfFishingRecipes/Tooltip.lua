@@ -1,16 +1,20 @@
 -- Tooltip.lua
 
-local function AppendFishInfo(tooltip, link)
-    if not link then return end
+local function AppendFishInfo(tooltip, link, itemID)
+    if not tooltip or not tooltip.AddLine then return end
     
-    local itemID = tonumber(string.match(link, "item:(%d+)"))
-    if not itemID then return end
+    if not itemID and link then
+        itemID = tonumber(string.match(link, "item:(%d+)"))
+    end
     
-    local fishData = BFR_Database.Fish[itemID]
+    local fishData
+    if itemID then
+        fishData = BFR_Database.Fish[itemID]
+    end
     
-    if not fishData then
-        local itemName = tooltip:GetItem()
-        if itemName then
+    if not fishData and tooltip.GetItem then
+        local ok, itemName = pcall(tooltip.GetItem, tooltip)
+        if ok and itemName and type(itemName) == "string" then
             for id, data in pairs(BFR_Database.Fish) do
                 if data.name == itemName then
                     fishData = data
@@ -62,21 +66,27 @@ end
 
 if TooltipDataProcessor and Enum and Enum.TooltipDataType and Enum.TooltipDataType.Item then
     TooltipDataProcessor.AddTooltipPostCall(Enum.TooltipDataType.Item, function(tooltip, data)
-        if tooltip then
-            local name, link = tooltip:GetItem()
-            AppendFishInfo(tooltip, link)
+        if not tooltip then return end
+        local itemID = data and data.id
+        local link = data and (data.hyperlink or (itemID and ("item:" .. itemID)))
+        if not link and tooltip.GetItem then
+            local ok, _, itemLink = pcall(tooltip.GetItem, tooltip)
+            if ok then link = itemLink end
         end
+        AppendFishInfo(tooltip, link, itemID)
     end)
 else
     local function LegacyHook(tooltip)
-        local name, link = tooltip:GetItem()
-        AppendFishInfo(tooltip, link)
-        tooltip:Show()
+        if not tooltip or not tooltip.GetItem then return end
+        local ok, name, link = pcall(tooltip.GetItem, tooltip)
+        if ok and link then
+            AppendFishInfo(tooltip, link)
+        end
     end
-    if GameTooltip:HasScript("OnTooltipSetItem") then
+    if GameTooltip and GameTooltip.HookScript and GameTooltip:HasScript("OnTooltipSetItem") then
         GameTooltip:HookScript("OnTooltipSetItem", LegacyHook)
     end
-    if ItemRefTooltip:HasScript("OnTooltipSetItem") then
+    if ItemRefTooltip and ItemRefTooltip.HookScript and ItemRefTooltip:HasScript("OnTooltipSetItem") then
         ItemRefTooltip:HookScript("OnTooltipSetItem", LegacyHook)
     end
 end
