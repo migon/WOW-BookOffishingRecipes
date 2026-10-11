@@ -176,23 +176,21 @@ rightPanel.FishName = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontNorma
 rightPanel.FishName:SetPoint("TOP", 0, -15)
 rightPanel.FishName:SetText("Select a fish from the list")
 
-CreateDivider(rightPanel, -65)
+CreateDivider(rightPanel, -50)
 
 rightPanel.SourceType = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.SourceType:SetPoint("TOPLEFT", 20, -85)
+rightPanel.SourceType:SetPoint("TOPLEFT", 20, -65)
 rightPanel.SourceType:SetWidth(390)
 rightPanel.SourceType:SetJustifyH("LEFT")
 
 rightPanel.BasicInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.BasicInfo:SetPoint("TOPLEFT", rightPanel.SourceType, "BOTTOMLEFT", 0, -10)
+rightPanel.BasicInfo:SetPoint("TOPLEFT", rightPanel.SourceType, "BOTTOMLEFT", 0, -8)
 rightPanel.BasicInfo:SetWidth(390)
 rightPanel.BasicInfo:SetJustifyH("LEFT")
 
-CreateDivider(rightPanel, -160)
-
 rightPanel.RecipeButton = CreateFrame("Button", nil, rightPanel)
 rightPanel.RecipeButton:SetSize(390, 20)
-rightPanel.RecipeButton:SetPoint("TOPLEFT", 20, -180)
+rightPanel.RecipeButton:SetPoint("TOPLEFT", rightPanel.BasicInfo, "BOTTOMLEFT", 0, -10)
 local rbText = rightPanel.RecipeButton:CreateFontString(nil, "OVERLAY", "GameFontNormal")
 rbText:SetPoint("LEFT", 0, 0)
 rightPanel.RecipeButton:SetFontString(rbText)
@@ -216,15 +214,13 @@ rightPanel.RecipeButton:SetScript("OnClick", function(self)
 end)
 
 rightPanel.CookInfo = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.CookInfo:SetPoint("TOPLEFT", rightPanel.RecipeButton, "BOTTOMLEFT", 0, -5)
+rightPanel.CookInfo:SetPoint("TOPLEFT", rightPanel.RecipeButton, "BOTTOMLEFT", 0, -4)
 rightPanel.CookInfo:SetWidth(390)
 rightPanel.CookInfo:SetJustifyH("LEFT")
 rightPanel.CookInfo:SetJustifyV("TOP")
 
-CreateDivider(rightPanel, -235)
-
 rightPanel.VendorsTitle = rightPanel:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
-rightPanel.VendorsTitle:SetPoint("TOPLEFT", 20, -255)
+rightPanel.VendorsTitle:SetPoint("TOPLEFT", rightPanel.CookInfo, "BOTTOMLEFT", 0, -8)
 rightPanel.VendorsTitle:SetJustifyH("LEFT")
 
 rightPanel.vendorBtns = {}
@@ -339,7 +335,8 @@ local function ShowFishDetails(itemID)
                         end
                         
                         local vBtn = rightPanel.vendorBtns[i]
-                        vBtn:SetPoint("TOPLEFT", 25, yPos)
+                        vBtn:ClearAllPoints()
+                        vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 10, -2 - (i-1)*16)
                         vBtn.textObject:SetTextColor(1, 1, 1) 
                         vBtn:SetText("• " .. info.name)
                         vBtn:Show()
@@ -385,8 +382,8 @@ end
 local function ShowLevelingAdvisor()
     local fLvl, fMax, cLvl, cMax = GetPlayerSkills()
     
-    rightPanel.FishName:SetText("★ Leveling Advisor")
-    rightPanel.SourceType:SetText("|cFFFFFF00Current Skills:|r |TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Fishing: " .. fLvl .. "/" .. fMax .. "    |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Cooking: " .. cLvl .. "/" .. cMax)
+    rightPanel.FishName:SetText("|TInterface\\Icons\\INV_Misc_Book_09:20:20:0:0|t Leveling Advisor")
+    rightPanel.SourceType:SetText("|cFFFFFF00Current Skills:|r  |TInterface\\Icons\\Trade_Fishing:14:14:0:0|t Fishing: " .. fLvl .. "/" .. fMax .. "    |TInterface\\Icons\\INV_Misc_Food_15:14:14:0:0|t Cooking: " .. cLvl .. "/" .. cMax)
     
     for _, vBtn in ipairs(rightPanel.vendorBtns) do vBtn:Hide() end
     rightPanel.RecipeButton:SetText("")
@@ -395,7 +392,7 @@ local function ShowLevelingAdvisor()
     rightPanel.VendorsTitle:SetText("")
     
     if cLvl >= 300 then
-        rightPanel.BasicInfo:SetText("|cFF00FF00🎉 Congratulations!|r\nYour Cooking skill is at maximum level (300/300)!\nYou can now prepare any fish feast in the realm.")
+        rightPanel.BasicInfo:SetText("|cFF00FF00Congratulations!|r\nYour Cooking skill is at maximum level (300/300)!\nYou can now prepare any fish feast in the realm.")
         rightPanel.CatchBox:Hide()
         rightPanel.CookBox:Hide()
         return
@@ -450,16 +447,16 @@ local function ShowLevelingAdvisor()
     local adviceText = ""
     
     if isFishLagging then
-        adviceText = "|cFFFF2020⚠️ Fishing is too low for your Cooking!|r\n"
-        adviceText = adviceText .. "To continue leveling Cooking, you need |cFFFFFF00" .. target.data.name .. "|r.\n"
-        adviceText = adviceText .. "Requires Fishing: |cFFFF2020" .. target.fishingMin .. "|r (your current: |cFFFFFF00" .. fLvl .. "|r)\n\n"
-        adviceText = adviceText .. "|cFFFFFF00👉 Step 1:|r Level up Fishing to |cFF00FF00" .. target.fishingMin .. "+|r in: " .. target.data.catchLocations
+        adviceText = "|cFFFF2020[!] Fishing is too low for your Cooking!|r\n"
+        adviceText = adviceText .. "|cFFFFFF00Target Fish:|r " .. target.data.name .. "\n"
+        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r |cFFFF2020" .. target.fishingMin .. "|r (your current: |cFFFFFF00" .. fLvl .. "|r)\n"
+        adviceText = adviceText .. "|cFFFFFF00• Next Step:|r Level up Fishing to |cFF00FF00" .. target.fishingMin .. "+|r in: " .. target.data.catchLocations
     else
-        adviceText = "|cFF00FF00✅ Ready to Level Up!|r\n"
-        adviceText = adviceText .. "Best fish to catch: |cFFFFFF00" .. target.data.name .. "|r\n"
+        adviceText = "|cFF00FF00[ Ready to Level Up ]|r\n"
+        adviceText = adviceText .. "|cFFFFFF00Best fish to catch:|r " .. target.data.name .. "\n"
         adviceText = adviceText .. "|cFFFFFF00Catch Locations:|r " .. target.data.catchLocations .. "\n"
-        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r " .. target.fishingMin .. " (You have " .. fLvl .. " ✅)\n\n"
-        adviceText = adviceText .. "|cFFFFFF00👉 Action:|r Catch this fish and cook it until Cooking reaches ~" .. (target.minCook + 40) .. "!"
+        adviceText = adviceText .. "|cFFFFFF00Required Fishing:|r " .. target.fishingMin .. " (You have " .. fLvl .. " - |cFF00FF00Ready|r)\n"
+        adviceText = adviceText .. "|cFFFFFF00• Goal:|r Cook this fish to Cooking level " .. (target.minCook + 40) .. "!"
     end
     rightPanel.BasicInfo:SetText(adviceText)
     
@@ -493,7 +490,6 @@ local function ShowLevelingAdvisor()
         rbText:SetTextColor(1, 0.82, 0)
         rightPanel.CookInfo:SetText("|cFF00FF00Optimal for Cooking Lvl:|r " .. recipe.cookLvl)
         
-        local yPos = -275
         local listData = recipe.sourceType == "Drop" and recipe.drops or recipe.vendors
         if listData then
             local playerFaction = UnitFactionGroup("player")
@@ -518,7 +514,8 @@ local function ShowLevelingAdvisor()
                         rightPanel.vendorBtns[i] = vBtn
                     end
                     local vBtn = rightPanel.vendorBtns[i]
-                    vBtn:SetPoint("TOPLEFT", 25, yPos)
+                    vBtn:ClearAllPoints()
+                    vBtn:SetPoint("TOPLEFT", rightPanel.VendorsTitle, "BOTTOMLEFT", 10, -2 - (i-1)*18)
                     vBtn.textObject:SetTextColor(1, 1, 1)
                     vBtn:SetText("• " .. info.name)
                     vBtn:Show()
@@ -532,7 +529,6 @@ local function ShowLevelingAdvisor()
                             SetMapMarker(info.mapID, info.x, info.y, info.name)
                         end
                     end)
-                    yPos = yPos - 18
                 end
             else
                 rightPanel.VendorsTitle:SetText("|cFF999999(No vendors available for your faction)|r")
@@ -576,16 +572,16 @@ function BFR_RefreshUI()
     
     -- Tlačítko Leveling Advisor nad kategoriemi
     local advisorBtn = CreateFrame("Button", nil, scrollChild)
-    advisorBtn:SetSize(250, 22)
-    advisorBtn:SetPoint("TOPLEFT", 5, yOffset)
+    advisorBtn:SetSize(240, 20)
+    advisorBtn:SetPoint("TOPLEFT", 10, yOffset)
     
     local advBg = advisorBtn:CreateTexture(nil, "BACKGROUND")
     advBg:SetAllPoints()
     advBg:SetColorTexture(0.25, 0.2, 0.05, 0.7)
     
     local advText = advisorBtn:CreateFontString(nil, "OVERLAY", "GameFontNormal")
-    advText:SetPoint("LEFT", 8, 0)
-    advText:SetText("|cFFFFD100★ Leveling Advisor|r")
+    advText:SetPoint("LEFT", 6, 0)
+    advText:SetText("|TInterface\\Icons\\INV_Misc_Book_09:14:14:0:0|t |cFFFFD100Leveling Advisor|r")
     advisorBtn:SetFontString(advText)
     advisorBtn.textObject = advText
     
